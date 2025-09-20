@@ -1,8 +1,18 @@
+"use client";
+
+import React from "react";
+import { useAuthStore } from "@/hooks/useAuthStore";
+import { WelcomeSection } from "@/components/home/WelcomeSection";
+import { GamesSection } from "@/components/home/GamesSection";
 
 export default function Home() {
+  const user = useAuthStore((state) => state.user);
+  
+
   return (
-    <div className="">
-      
-    </div>
+    <main className="min-h-screen ">
+      <WelcomeSection user={user} />
+      <GamesSection />
+    </main>
   );
 }
