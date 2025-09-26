@@ -41,25 +41,31 @@ public class RefreshTokenService {
         if (refreshToken == null) return false;
         return refreshToken.getExpiresAt().isAfter(Instant.now());
     }
-
     public ResponseEntity<?> refreshToken(String refreshToken){
+        System.out.println("Refreshing token: " + refreshToken);
         RefreshToken token = refreshTokenRepository.findByToken(refreshToken);
+        System.out.println("Found token: " + token);
 
         boolean isValid = isValid(token);
+        System.out.println("Is token valid: " + isValid);
 
         if (!isValid){
             return ResponseEntity.status(401).body(Map.of("Error","Invalid refresh token"));
         }
 
         User user = token.getUser();
+        System.out.println("Token belongs to user: " + user.getEmail());
         String accessToken = jwtService.generateToken(user.getEmail(), Map.of("id", user.getId()));
+        System.out.println("Generated new access token: " + accessToken);
         String newRefreshToken = CreateRefreshTokenForOldUser(user).getToken();
+        System.out.println("Generated new refresh token: " + newRefreshToken);
 
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(
                 UserDto.from(user),
                 accessToken,
                 newRefreshToken
         );
+
 
         return ResponseEntity.ok(authenticatedUser);
     }

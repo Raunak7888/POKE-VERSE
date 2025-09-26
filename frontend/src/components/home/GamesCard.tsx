@@ -48,12 +48,13 @@ export const GameCard: React.FC<GameCardProps> = ({
     >
       {/* Image Header */}
       <CardHeader className="p-0 relative">
-        <div className="relative bottom-6 w-full h-48 border-4 border-background rounded-2xl overflow-hidden">
+        <div className="relative bottom-6 w-full h-48 border-7 border-transparent rounded-2xl overflow-hidden">
           {image ? (
             <Image
               src={image}
               alt={title}
               fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="object-cover transition-transform duration-300 hover:scale-105"
             />
           ) : (

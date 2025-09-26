@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Moon, Sun } from "lucide-react";
 
 export function ThemeToggle() {
-  const [isToggled, setIsToggled] = React.useState(false);
+  const [isToggled, setIsToggled] = React.useState(true);
 
   // Sync body class with dark mode
   React.useEffect(() => {
@@ -18,11 +18,10 @@ export function ThemeToggle() {
 
   return (
     <Button
-      size="icon"
-      className="rounded-full text-white bg-primary shadow-none "
+      className="rounded-full text-white bg-primary shadow-none scale-[2] w-10 h-7 m-1 z-5"
       onClick={() => setIsToggled(!isToggled)}
     >
-      {isToggled ? <Sun fill="white" />:<Moon fill="white" />}
+      {isToggled ? <Sun fill="white"/>:<Moon fill="white" />}
     </Button>
   );
 }

@@ -10,7 +10,7 @@ export default function Home() {
   
 
   return (
-    <main className="min-h-screen ">
+    <main className="min-h-screen  flex flex-col items-center justify-center bg-background">
       <WelcomeSection user={user} />
       <GamesSection />
     </main>

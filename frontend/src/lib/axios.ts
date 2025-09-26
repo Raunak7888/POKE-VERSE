@@ -1,50 +1,54 @@
 import axios from "axios";
-import Cookies from "js-cookie";
+import {jwtDecode} from "jwt-decode";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { BACKEND_URL } from "@/components/utils/backendUrl";
 
 const api = axios.create({
-  baseURL: BACKEND_URL, // Corrected: Directly use the variable
+  baseURL: BACKEND_URL,
   withCredentials: true,
 });
-// Attach accessToken on each request
-api.interceptors.request.use((config) => {
-  const accessToken = useAuthStore.getState().accessToken;
+
+// Decode JWT and check expiry
+function isTokenExpiringSoon(token: string, thresholdSeconds = 10): boolean {
+  try {
+    const decoded: { exp: number } = jwtDecode(token);
+    const now = Math.floor(Date.now() / 1000);
+    return decoded.exp - now <= thresholdSeconds;
+  } catch (err) {
+    console.error("Failed to decode JWT:", err);
+    return true; // force refresh if invalid
+  }
+}
+
+// Attach accessToken and refresh proactively
+api.interceptors.request.use(async (config) => {
+  let accessToken = useAuthStore.getState().accessToken;
+  const refreshToken = useAuthStore.getState().getRefreshToken();
+
+  if (accessToken && refreshToken && isTokenExpiringSoon(accessToken)) {
+    try {
+      const res = await axios.post(
+        `${BACKEND_URL}/api/auth/refresh`,
+        { refreshToken },
+        { withCredentials: true }
+      );
+      const { accessToken: newAccessToken, refreshToken: newRefreshToken, user } = res.data;
+
+      // update store and cookies
+      useAuthStore.getState().setAuth(user, newAccessToken, newRefreshToken);
+
+      accessToken = newAccessToken;
+    } catch (err) {
+      console.error("Token refresh failed:", err);
+      useAuthStore.getState().clearAuth();
+    }
+  }
+
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
+
   return config;
 });
-
-// Optional: handle token refresh on 401
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      const refreshToken = Cookies.get("refreshToken");
-      if (refreshToken) {
-        try {
-          const res = await axios.post(
-            `${BACKEND_URL}/api/auth/refresh`,
-            { refreshToken },
-            { withCredentials: true }
-          );
-          const { accessToken, user } = res.data;
-
-          // update store
-          useAuthStore.getState().setAuth(user, accessToken, refreshToken);
-
-          // retry original request
-          error.config.headers.Authorization = `Bearer ${accessToken}`;
-          return api.request(error.config);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (err) {
-          useAuthStore.getState().clearAuth();
-        }
-      }
-    }
-    return Promise.reject(error);
-  }
-);
 
 export default api;

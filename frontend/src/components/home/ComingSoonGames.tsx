@@ -1,6 +1,7 @@
 "use client";
 
-import { GameCard } from "@/components/home/card";
+import { GameCard } from "./GamesCard";
+
 
 const comingSoonGames = [
   {

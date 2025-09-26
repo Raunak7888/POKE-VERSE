@@ -20,5 +20,6 @@ public class RefreshToken {
     private User user;
     private String token;
     private Instant expiresAt;
+    @Builder.Default
     private Instant createdAt = Instant.now();
 }

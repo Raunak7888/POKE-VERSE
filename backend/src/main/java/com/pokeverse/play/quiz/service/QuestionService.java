@@ -1,0 +1,96 @@
+package com.pokeverse.play.quiz.service;
+
+import com.pokeverse.play.model.Question;
+import com.pokeverse.play.quiz.dto.QuestionDto;
+import com.pokeverse.play.quiz.utils.ErrorUtil;
+import com.pokeverse.play.quiz.utils.Validate;
+import com.pokeverse.play.repository.QuestionRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+public class QuestionService {
+
+    private final QuestionRepository questionRepository;
+    private final Validate validate;
+    private final ErrorUtil errorUtil;
+
+    public ResponseEntity<?> addQuestion(QuestionDto questionDto) {
+        String validationError = validate.validateQuestionDto(questionDto);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(errorUtil.sendErrorMessage(validationError));
+        }
+
+        Question question = Question.builder()
+                .question(questionDto.question())
+                .options(questionDto.options())
+                .answer(questionDto.answer())
+                .region(questionDto.region())
+                .difficulty(questionDto.difficulty())
+                .build();
+
+        Question savedQuestion = questionRepository.save(question);
+        return ResponseEntity.ok(savedQuestion);
+    }
+
+    public ResponseEntity<?> updateQuestion(QuestionDto questionDto) {
+        if (questionDto.id() == null) {
+            return ResponseEntity.badRequest().body(errorUtil.sendErrorMessage("Question ID is required for update"));
+        }
+
+        Optional<Question> existingQuestionOpt = questionRepository.findById(questionDto.id());
+        if (existingQuestionOpt.isEmpty()) {
+            return ResponseEntity.status(404).body(errorUtil.sendErrorMessage("Question not found"));
+        }
+
+        String validationError = validate.validateQuestionDto(questionDto);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(errorUtil.sendErrorMessage(validationError));
+        }
+
+        Question question = existingQuestionOpt.get();
+        question.setQuestion(questionDto.question());
+        question.setOptions(questionDto.options());
+        question.setAnswer(questionDto.answer());
+        question.setRegion(questionDto.region());
+        question.setDifficulty(questionDto.difficulty());
+
+        Question updatedQuestion = questionRepository.save(question);
+        return ResponseEntity.ok(updatedQuestion);
+    }
+
+    public ResponseEntity<?> deleteQuestion(Long id) {
+        if (!questionRepository.existsById(id)) {
+            return ResponseEntity.status(404).body(errorUtil.sendErrorMessage("Question not found"));
+        }
+        questionRepository.deleteById(id);
+        return ResponseEntity.ok("Question deleted successfully");
+    }
+
+    public ResponseEntity<?> getQuestionById(Long id) {
+        return questionRepository.findById(id)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElse(ResponseEntity.status(404).body(errorUtil.sendErrorMessage("Question not found")));
+    }
+
+    public ResponseEntity<?> getQuestionByParams(String region, String difficulty, Integer limit) {
+        List<Question> questions;
+
+        if (region != null && difficulty != null) {
+            questions = questionRepository.findByRegionAndDifficulty(region, difficulty, limit);
+        } else if (region != null) {
+            questions = questionRepository.findByRegion(region, limit);
+        } else if (difficulty != null) {
+            questions = questionRepository.findByDifficulty(difficulty, limit);
+        } else {
+            questions = questionRepository.findAllLimit(limit);
+        }
+
+        return ResponseEntity.ok(questions);
+    }
+}

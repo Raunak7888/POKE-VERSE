@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/users")
+@RequestMapping("/v1/api/users")
 public class UserController {
 
     private final UserRepository userRepository;
@@ -20,8 +20,9 @@ public class UserController {
     // GET /users/me
     @GetMapping("/me")
     public UserDto getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
-        String email = jwt.getSubject();
+        String email = jwt.getClaims().get("sub").toString(); // safer than jwt.getSubject()
         User user = userRepository.findByEmail(email);
         return UserDto.from(user);
     }
+
 }

@@ -1,221 +1,142 @@
-// components/Navbar.tsx
 "use client";
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { SignInDialog } from "./signInDialog";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import api from "@/lib/axios";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ThemeToggle } from "./themeToggle";
+import { getUserData } from "./getUserData";
+import DesktopNavLinks from "./DesktopNavLinks";
+import MobileMenu from "./MobileMenu";
+import { User } from "../utils/types";
 
 export default function Navbar() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const fetchingRef = useRef(false); // Prevent multiple API calls
+  
+  // Use Zustand store directly
+  const { user, setAuth, loadFromCookies } = useAuthStore();
 
-  const user = useAuthStore((s) => s.user);
-  const loadFromCookies = useAuthStore((s) => s.loadFromCookies);
-  const setAuth = useAuthStore((s) => s.setAuth);
-  const clearAuth = useAuthStore((s) => s.clearAuth);
-
+  // Initialize auth state from cookies/localStorage on mount
   useEffect(() => {
-    loadFromCookies();
+    const initializeAuth = async () => {
+      // First, handle URL params (OAuth redirect)
+      const url = new URL(window.location.href);
+      const userParam = url.searchParams.get("user");
+      const token = url.searchParams.get("token");
+      const refreshToken = url.searchParams.get("refreshToken");
 
-    const checkAuth = async () => {
-      try {
-        const res = await api.get("/api/auth/success", {
-          withCredentials: true,
-        });
-        if (res.data) {
-          const { user, accessToken, refreshToken } = res.data;
-          setAuth(user, accessToken, refreshToken);
+      if (userParam && token && refreshToken) {
+        try {
+          const match = userParam.match(/UserDto\[(.*?)\]/);
+          if (match) {
+            const parts = match[1].split(",").map(p => p.trim());
+            const userObj: {
+              id?: string;
+              username?: string;
+              email?: string;
+              profilePictureUrl?: string;
+            } = {};
+            
+            parts.forEach((p) => {
+              const [key, val] = p.split("=");
+              if (key && val) {
+                switch (key.trim()) {
+                  case "id": userObj.id = val.trim(); break;
+                  case "username": userObj.username = val.trim(); break;
+                  case "email": userObj.email = val.trim(); break;
+                  case "profilePictureUrl": userObj.profilePictureUrl = val.trim(); break;
+                }
+              }
+            });
+
+            const parsedUser = {
+              id: Number(userObj.id ?? 0),
+              name: userObj.username ?? "",
+              email: userObj.email ?? "",
+              image: userObj.profilePictureUrl ?? "",
+            };
+
+            setAuth(parsedUser, token, refreshToken);
+            window.history.replaceState({}, document.title, "/");
+            setIsInitialized(true);
+            return; // Exit early, we have user data
+          }
+        } catch (err) {
+          console.error("Failed to parse user param:", err);
         }
-      } catch {
-        console.log("Not logged in yet");
+      }
+
+      // If no URL params, load from cookies/localStorage
+      loadFromCookies();
+      setIsInitialized(true);
+    };
+
+    initializeAuth();
+  }, [loadFromCookies, setAuth]); // Run only once on mount
+
+  // Fetch user data from API if we have token but no user data
+  useEffect(() => {
+    if (!isInitialized || fetchingRef.current) return;
+
+    const fetchUserFromAPI = async () => {
+      const currentState = useAuthStore.getState();
+      const token = currentState.getToken();
+      const currentUser = currentState.user;
+
+      console.log("Checking if should fetch user:", { 
+        hasToken: !!token, 
+        hasUser: !!currentUser,
+        isInitialized 
+      });
+
+      // Only fetch if we have token but no user data
+      if (!token || currentUser) {
+        console.log("Skipping API fetch:", { 
+          reason: !token ? "no token" : "user already exists" 
+        });
+        return;
+      }
+
+      fetchingRef.current = true;
+      console.log("Fetching user data from API...");
+
+      try {
+        const userData = await getUserData(token);
+        if (userData) {
+          const refreshToken = currentState.getRefreshToken() ?? "";
+          setAuth(userData, token, refreshToken);
+          console.log("Successfully fetched and set user data:", userData.name);
+        } else {
+          console.log("API returned no user data");
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+       
+      } finally {
+        fetchingRef.current = false;
       }
     };
 
-    checkAuth();
-  }, [loadFromCookies, setAuth]);
+    fetchUserFromAPI();
+  }, [isInitialized, user, setAuth]);
 
-  // Close menu automatically after login
+    
+
+  // Auto-close mobile menu after login
   useEffect(() => {
-    if (user && menuOpen) {
-      setMenuOpen(false);
-    }
+    if (user && menuOpen) setMenuOpen(false);
   }, [user, menuOpen]);
 
   return (
-    <nav
-      className="w-full flex items-center justify-between px-6 py-3 shadow-md fixed top-0 left-0 z-50"
-      style={{ backgroundColor: "#EE4035" }}
-    >
-      {/* Title */}
+    <nav className="w-full flex items-center justify-between px-6 py-3 shadow-md fixed top-0 left-0 z-50 bg-[#EE4035]">
       <h1
         className="text-3xl font-bold text-white font-krona tracking-wide cursor-pointer"
         onClick={() => router.push("/")}
       >
         Pokeverse
       </h1>
-
-      {/* Desktop Links */}
-      <div className="hidden md:flex items-center font-aclonica gap-6 text-white font-medium">
-        <Link href="/">Home</Link>
-        <Link href="/quiz">PokeQuiz</Link>
-        <Link href="/about">About</Link>
-        <ThemeToggle />
-
-        {/* Auth Section */}
-        {user ? (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Avatar className="cursor-pointer ring-2 ring-white">
-                <AvatarImage
-                  src={user.image || "https://via.placeholder.com/150"}
-                  alt={user.name}
-                />
-                <AvatarFallback className="bg-white text-[#EE4035] font-bold">
-                  {user.name[0]}
-                </AvatarFallback>
-              </Avatar>
-            </DialogTrigger>
-            <DialogContent className="max-w-sm">
-              <DialogHeader>
-                <DialogTitle className="text-center text-xl font-semibold">
-                  Profile
-                </DialogTitle>
-              </DialogHeader>
-              <div className="flex flex-col items-center gap-4 py-4">
-                <Avatar className="w-20 h-20 ring-4 ring-[#EE4035]">
-                  <AvatarImage src={user.image} alt={user.name} />
-                  <AvatarFallback className="bg-[#EE4035] text-white">
-                    {user.name[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="text-center">
-                  <p className="text-xl font-semibold">{user.name}</p>
-                  <p className="text-sm text-gray-200">{user.email}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={clearAuth}
-                >
-                  Sign Out
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="text-md bg-primary hover:bg-white hover:text-primary text-white border-2 border-white">
-                Sign In
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-sm">
-              <SignInDialog />
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-
-      {/* Mobile Menu (Dropdown) */}
-      <div className="md:hidden gap-3 flex">
-        {user ? (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Avatar className="cursor-pointer ring-2 ring-white">
-                <AvatarImage
-                  src={user.image || "https://via.placeholder.com/150"}
-                  alt={user.name}
-                />
-                <AvatarFallback className="bg-white text-[#EE4035] font-bold">
-                  {user.name[0]}
-                </AvatarFallback>
-              </Avatar>
-            </DialogTrigger>
-            <DialogContent className="max-w-sm">
-              <DialogHeader>
-                <DialogTitle className="text-center text-xl font-semibold">
-                  Profile
-                </DialogTitle>
-              </DialogHeader>
-              <div className="flex flex-col items-center gap-4 py-4">
-                <Avatar className="w-20 h-20 ring-4 ring-[#EE4035]">
-                  <AvatarImage src={user.image} alt={user.name} />
-                  <AvatarFallback className="bg-[#EE4035] text-white">
-                    {user.name[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="text-center">
-                  <p className="text-xl font-semibold">{user.name}</p>
-                  <p className="text-sm text-gray-200">{user.email}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={clearAuth}
-                >
-                  Sign Out
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="text-md bg-primary hover:bg-white hover:text-primary text-white border-2 border-white">
-                Sign In
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-sm">
-              <SignInDialog />
-            </DialogContent>
-          </Dialog>
-        )}
-        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="text-white hover:bg-white/20 focus:outline-none"
-            >
-              ☰
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="bg-[#EE4035] text-white font-aclonica w-40"
-          >
-            <DropdownMenuItem asChild>
-              <Link href="/">Home</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/quiz">PokeQuiz</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/about">About</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <ThemeToggle/>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <DesktopNavLinks user={user} />
+      <MobileMenu user={user} menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
     </nav>
   );
 }

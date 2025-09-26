@@ -20,5 +20,6 @@ public class User {
     private String profilePictureUrl;
     private String providerId;
     private String provider;
+    @Builder.Default
     private Instant createdAt = Instant.now();
 }

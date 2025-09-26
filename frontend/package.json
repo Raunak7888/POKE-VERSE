@@ -46,6 +46,7 @@
     "framer-motion": "^12.23.15",
     "input-otp": "^1.4.2",
     "js-cookie": "^3.0.5",
+    "jwt-decode": "^4.0.0",
     "lucide-react": "^0.544.0",
     "motion": "^12.23.16",
     "next": "15.5.3",
