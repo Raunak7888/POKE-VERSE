@@ -1,4 +1,4 @@
-package com.pokeverse.play.quiz.utils;
+package com.pokeverse.play.quiz.cache;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;

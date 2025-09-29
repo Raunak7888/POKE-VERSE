@@ -35,6 +35,5 @@ public class SinglePlayerSession {
     @PrePersist
     public void prePersist() {
         this.createdAt = Instant.now();
-        this.status = Status.NOT_STARTED;
     }
 }
