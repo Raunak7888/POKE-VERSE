@@ -11,8 +11,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-
 import { Minus, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { useSinglePlayerQuestionsStore } from "@/store/useSinglePlayerQuestionsStore";
+import { useAuthStore } from "@/store/useAuthStore";
+import { toast } from "sonner";
+import { useSinglePlayerSessionStore } from "@/store/useSinglePlayerSessionStore";
 
 export default function SinglePlayer() {
   const regions = ["All", "Kanto", "Johto", "Hoenn", "Sinnoh"];
@@ -21,19 +24,88 @@ export default function SinglePlayer() {
   const [region, setRegion] = useState("all");
   const [difficulty, setDifficulty] = useState("all");
   const [rounds, setRounds] = useState(5);
+  const [loading, setLoading] = useState(false);
+
+  const { setQuestions } = useSinglePlayerQuestionsStore();
+  const { setSession } = useSinglePlayerSessionStore();
+  const user = useAuthStore((state) => state.user);
   const router = useRouter();
 
-  const handleStart = () => {
+  const handleStart = async () => {
+    if (!user?.id) {
+      toast.error("You must be logged in to start a quiz.", {
+        style: { background: "#ef4444", color: "#fff" },
+      });
+      return;
+    }
+
+    setLoading(true);
+
     const regionValue = region === "all" ? "" : region;
     const difficultyValue = difficulty === "all" ? "" : difficulty;
 
-    router.push(
-      `/quiz/singleplayer?region=${regionValue}&difficulty=${difficultyValue}&rounds=${rounds}`
-    );
+    try {
+      const response = await fetch(
+        "http://localhost:8080/v1/api/quiz/single-player/session/create",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.id,
+            rounds,
+            region: regionValue.toUpperCase(),
+            difficulty: difficultyValue.toUpperCase(),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const err = await response.json();
+          throw new Error(
+            err.message || "Failed to start session (Server error)"
+          );
+        } else {
+          throw new Error(
+            `Server responded with status ${response.status}: ${response.statusText}`
+          );
+        }
+      }
+
+      const data = await response.json();
+      console.log("Received data:", data);
+      if (!data?.questions) {
+        toast.error("No questions received from server.", {
+          style: { background: "#ef4444", color: "#fff" },
+        });
+        return;
+      }
+      console.log("Storing questions:", data.questions);
+
+      setQuestions(data.questions); // ✅ only save questions
+      console.log("Setting session:", data.session);
+      setSession(data.session); // ✅ save entire session object
+      toast.success("Quiz session started!", {
+        style: { background: "#22c55e", color: "#fff" },
+      });
+
+      router.push(`/quiz/singleplayer/question`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message, {
+          style: { background: "#ef4444", color: "#fff" },
+        });
+      } else {
+        toast.error("An unexpected error occurred.", {
+          style: { background: "#ef4444", color: "#fff" },
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-
-  // Helper: cycle through arrays
   const cycleValue = (arr: string[], current: string, dir: "prev" | "next") => {
     if (!current) return arr[0].toLowerCase();
     const index = arr.findIndex(
@@ -48,7 +120,7 @@ export default function SinglePlayer() {
 
   return (
     <div className="space-y-6">
-      {/* Region */}
+      {/* Region selector */}
       <div className="space-y-2">
         <Label className="text-primary">Region</Label>
         <div className="flex items-center gap-2">
@@ -80,7 +152,6 @@ export default function SinglePlayer() {
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          {/* Quick All Button */}
           <Button
             variant="outline"
             size="sm"
@@ -92,7 +163,7 @@ export default function SinglePlayer() {
         </div>
       </div>
 
-      {/* Difficulty */}
+      {/* Difficulty selector */}
       <div className="space-y-2">
         <Label className="text-primary">Difficulty</Label>
         <div className="flex items-center gap-2">
@@ -128,7 +199,6 @@ export default function SinglePlayer() {
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          {/* Quick All Button */}
           <Button
             variant="outline"
             size="sm"
@@ -140,7 +210,7 @@ export default function SinglePlayer() {
         </div>
       </div>
 
-      {/* Rounds with stepper */}
+      {/* Rounds */}
       <div className="space-y-2">
         <Label className="text-primary">Rounds</Label>
         <div className="flex items-center gap-2">
@@ -174,11 +244,13 @@ export default function SinglePlayer() {
         </div>
       </div>
 
+      {/* Start Button */}
       <Button
         onClick={handleStart}
+        disabled={loading}
         className="w-full bg-primary hover:bg-primary/50 text-foreground rounded-xl"
       >
-        Start Quiz
+        {loading ? "Starting..." : "Start Quiz"}
       </Button>
     </div>
   );

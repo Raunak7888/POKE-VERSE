@@ -11,6 +11,8 @@ import {
   Piedra,
   Poetsen_One,
 } from "next/font/google";
+import { Toaster } from "sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const krona = Krona_One({
   weight: "400",
@@ -64,8 +66,11 @@ export default function RootLayout({
       <body
         className={`${outfit.className} ${krona.variable} ${aclonica.variable} ${mogra.variable} ${modak.variable} ${lemon.variable} ${piedra.variable} ${poetsen.variable} antialiased dark bg-background`}
       >
+        <TooltipProvider>
           <Navbar />
           {children}
+          <Toaster position="top-center" />
+        </TooltipProvider>
       </body>
     </html>
   );

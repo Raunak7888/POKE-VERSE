@@ -4,6 +4,8 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* bg-[conic-gradient(at_bottom_left,_var(--tw-gradient-stops))] from-[#0f172a]  to-[#334155] */
+  --background-gradient: conic-gradient(at bottom left, #fef3f2, #fee2e1);
   --background: #ffffff;
   --foreground: #0a0a0a;
   --card: #ffffff;
@@ -30,6 +32,8 @@
   --chart-5: #fed5d3;
   --sidebar: #ffffff;
   --sidebar-foreground: #0a0a0a;
+  --success: #22c55e;
+  --yellow: #efbf04;
   --sidebar-primary: #ee4035;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f1f5f9;
@@ -53,6 +57,7 @@
 }
 
 .dark {
+  --background-gradient: conic-gradient(at bottom left, #0f172a, #334155);
   --background: #000000;
   --foreground: #ffffff;
   --card: #0a0a0a;
@@ -76,7 +81,9 @@
   --chart-2: #f5655c;
   --chart-3: #f88a83;
   --chart-4: #fbb0ab;
+  --success: #22c55e;
   --chart-5: #fed5d3;
+   --yellow: #efbf04;
   --sidebar: #000000;
   --sidebar-foreground: #ffffff;
   --sidebar-primary: #ee4035;
@@ -100,6 +107,8 @@
 }
 
 @theme inline {
+  --yellow: #efbf04;
+  --success: #22c55e;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

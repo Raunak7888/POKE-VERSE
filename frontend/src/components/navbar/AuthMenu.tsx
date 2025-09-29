@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useAuthStore } from "@/hooks/useAuthStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { SignInDialog } from "./signInDialog";
 import { User } from "../utils/types";
 
@@ -40,7 +40,7 @@ export default function AuthMenu({ user, isMobile }: { user: User | null; isMobi
               <p className="text-xl text-foreground font-semibold">{user.name}</p>
               <p className="text-sm text-foreground">{user.email}</p>
             </div>
-            <Button variant="outline" className="w-full text-foreground" onClick={clearAuth}>
+            <Button variant="outline" className="w-full text-white" onClick={clearAuth}>
               Sign Out
             </Button>
           </div>

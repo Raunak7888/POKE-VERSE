@@ -1,6 +1,6 @@
 import axios from "axios";
 import {jwtDecode} from "jwt-decode";
-import { useAuthStore } from "@/hooks/useAuthStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { BACKEND_URL } from "@/components/utils/backendUrl";
 
 const api = axios.create({

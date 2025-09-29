@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useAuthStore } from "@/hooks/useAuthStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { WelcomeSection } from "@/components/home/WelcomeSection";
 import { GamesSection } from "@/components/home/GamesSection";
 

@@ -1,11 +1,10 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/hooks/useAuthStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { getUserData } from "./getUserData";
 import DesktopNavLinks from "./DesktopNavLinks";
 import MobileMenu from "./MobileMenu";
-import { User } from "../utils/types";
 
 export default function Navbar() {
   const router = useRouter();
@@ -128,9 +127,9 @@ export default function Navbar() {
   }, [user, menuOpen]);
 
   return (
-    <nav className="w-full flex items-center justify-between px-6 py-3 shadow-md fixed top-0 left-0 z-50 bg-[#EE4035]">
+    <nav className="w-full flex items-center justify-between px-6 py-3  fixed top-0 left-0 z-50 bg-[#EE4035]">
       <h1
-        className="text-3xl font-bold text-white font-krona tracking-wide cursor-pointer"
+        className="md:text-3xl text-2xl font-bold text-white font-krona tracking-wide cursor-pointer"
         onClick={() => router.push("/")}
       >
         Pokeverse

@@ -1,7 +1,7 @@
 // lib/auth.ts
 import api from "@/lib/axios";
 import { BACKEND_URL } from "../utils/backendUrl";
-import { useAuthStore } from "@/hooks/useAuthStore";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export async function getUserData(token: string) {
   try {
