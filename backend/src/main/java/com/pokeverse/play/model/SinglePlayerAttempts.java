@@ -1,10 +1,10 @@
 package com.pokeverse.play.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.Instant;
-import java.util.List;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "single_player_attempts")
@@ -17,16 +17,17 @@ public class SinglePlayerAttempts {
     private Long id;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "session_id", nullable = false)
+    @JsonIgnore
     private SinglePlayerSession session;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "question_id", nullable = false)
     private Question question;
     private String selectedAnswer;
     private boolean isCorrect;
-    private Instant answeredAt;
+    private LocalDateTime answeredAt;
 
     @PrePersist
     protected void onCreate() {
-        this.answeredAt = Instant.now();
+        this.answeredAt = LocalDateTime.now();
     }
 }

@@ -2,4 +2,10 @@ package com.pokeverse.play.quiz.dto;
 
 import java.util.List;
 
-public record QuestionDto(Long id, String question, List<String> options, String answer, String region, String difficulty) {}
+public record QuestionDto(
+        Long id,
+        String question,
+        List<String> options,
+        String answer,
+        String region,
+        String difficulty) {}

@@ -3,7 +3,7 @@ package com.pokeverse.play.model;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,11 +29,11 @@ public class SinglePlayerSession {
     @Builder.Default
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SinglePlayerAttempts> attempts = new ArrayList<>();
-    private Instant startedAt;
-    private Instant completedAt;
-    private Instant createdAt;
+    private LocalDateTime startedAt;
+    private LocalDateTime completedAt;
+    private LocalDateTime createdAt;
     @PrePersist
     public void prePersist() {
-        this.createdAt = Instant.now();
+        this.createdAt = LocalDateTime.now();
     }
 }

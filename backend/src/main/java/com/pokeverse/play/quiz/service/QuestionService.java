@@ -23,7 +23,7 @@ public class QuestionService {
     public ResponseEntity<?> addQuestion(QuestionDto questionDto) {
         String validationError = validate.validateQuestionDto(questionDto);
         if (validationError != null) {
-            return ResponseEntity.badRequest().body(errorUtil.sendErrorMessage(validationError));
+            return errorUtil.badRequest(validationError);
         }
 
         Question question = Question.builder()
@@ -40,17 +40,17 @@ public class QuestionService {
 
     public ResponseEntity<?> updateQuestion(QuestionDto questionDto) {
         if (questionDto.id() == null) {
-            return ResponseEntity.badRequest().body(errorUtil.sendErrorMessage("Question ID is required for update"));
+            return errorUtil.badRequest("Question ID is required for update");
         }
 
         Optional<Question> existingQuestionOpt = questionRepository.findById(questionDto.id());
         if (existingQuestionOpt.isEmpty()) {
-            return ResponseEntity.status(404).body(errorUtil.sendErrorMessage("Question not found"));
+            return errorUtil.notFound("Question not found");
         }
 
         String validationError = validate.validateQuestionDto(questionDto);
         if (validationError != null) {
-            return ResponseEntity.badRequest().body(errorUtil.sendErrorMessage(validationError));
+            return errorUtil.badRequest(validationError);
         }
 
         Question question = existingQuestionOpt.get();
@@ -66,7 +66,7 @@ public class QuestionService {
 
     public ResponseEntity<?> deleteQuestion(Long id) {
         if (!questionRepository.existsById(id)) {
-            return ResponseEntity.status(404).body(errorUtil.sendErrorMessage("Question not found"));
+            return errorUtil.notFound("Question not found");
         }
         questionRepository.deleteById(id);
         return ResponseEntity.ok("Question deleted successfully");
@@ -75,7 +75,7 @@ public class QuestionService {
     public ResponseEntity<?> getQuestionById(Long id) {
         return questionRepository.findById(id)
                 .<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElse(ResponseEntity.status(404).body(errorUtil.sendErrorMessage("Question not found")));
+                .orElse(errorUtil.notFound("Question not found"));
     }
 
     public ResponseEntity<?> getQuestionByParams(String region, String difficulty, Integer limit) {
@@ -90,7 +90,6 @@ public class QuestionService {
         } else {
             questions = questionRepository.findAllLimit(limit);
         }
-
         return ResponseEntity.ok(questions);
     }
 }

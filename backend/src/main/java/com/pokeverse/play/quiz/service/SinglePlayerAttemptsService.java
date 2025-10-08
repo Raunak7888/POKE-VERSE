@@ -7,59 +7,58 @@ import com.pokeverse.play.model.Status;
 import com.pokeverse.play.quiz.dto.SinglePlayerAttemptDto;
 import com.pokeverse.play.quiz.dto.SubmitAttemptDto;
 import com.pokeverse.play.quiz.utils.ErrorUtil;
-import com.pokeverse.play.quiz.cache.SinglePlayerSessionCache;
 import com.pokeverse.play.repository.QuestionRepository;
 import com.pokeverse.play.repository.SinglePlayerSessionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
 public class SinglePlayerAttemptsService {
-
+    private static final String SESSION_CACHE = "SESSION";
     private final ErrorUtil errorUtil;
     private final QuestionRepository questionRepository;
     private final SinglePlayerSessionRepository singlePlayerSessionRepository;
-    private final SinglePlayerSessionCache sessionCache;
+    @Autowired
+    private final RedisCacheService redisCacheService;
 
     public ResponseEntity<?> submitAttempt(SubmitAttemptDto dto) {
 
-        // 1. Fetch session from cache
-        SinglePlayerSession session = sessionCache.get(dto.sessionId());
+        SinglePlayerSession session = redisCacheService.get(SESSION_CACHE, dto.sessionId(), SinglePlayerSession.class)
+                .orElse(null);
+
         if (session == null) {
-            return ResponseEntity.status(404)
-                    .body(errorUtil.sendErrorMessage("Session not found in cache"));
+            session = singlePlayerSessionRepository.findById(dto.sessionId()).orElse(null);
+            if (session == null) {
+                return errorUtil.notFound("Session not found");
+            }
+            redisCacheService.set(SESSION_CACHE, session.getId(), session);
         }
 
-        // 2. Validate session status
         if (session.getStatus() != Status.IN_PROGRESS) {
-            return ResponseEntity.badRequest()
-                    .body(errorUtil.sendErrorMessage("Session is not in progress"));
+            return errorUtil.badRequest("Session is not in progress");
         }
 
-        // 3. Find the attempt for this question
         SinglePlayerAttempts attempt = session.getAttempts().stream()
                 .filter(a -> a.getQuestion().getId().equals(dto.questionId()))
                 .findFirst()
                 .orElse(null);
 
         if (attempt == null) {
-            return ResponseEntity.status(400)
-                    .body(errorUtil.sendErrorMessage("Attempt not found for this question"));
+            return errorUtil.notFound("Attempt not found for this question");
         }
 
-        // 4. Validate question exists
         Question question = questionRepository.findById(dto.questionId()).orElse(null);
         if (question == null) {
-            return ResponseEntity.badRequest()
-                    .body(errorUtil.sendErrorMessage("Invalid question ID"));
+            return errorUtil.badRequest("Invalid question ID");
         }
 
-        // 5. Submit attempt
         attempt.setSelectedAnswer(dto.selectedAnswer());
         attempt.setCorrect(dto.selectedAnswer().equals(question.getAnswer()));
-        attempt.setAnsweredAt(java.time.Instant.now());
+        attempt.setAnsweredAt(LocalDateTime.now());
 
         SinglePlayerAttemptDto responseDto = new SinglePlayerAttemptDto(
                 question.getId(),
@@ -68,22 +67,16 @@ public class SinglePlayerAttemptsService {
                 question.getAnswer()
         );
 
-        // 6. Increment current round
         session.setCurrentRound(session.getCurrentRound() + 1);
 
-        // 7. If this was the last question, mark session as completed
         if (session.getCurrentRound() > session.getRounds()) {
             session.setStatus(Status.COMPLETED);
         }
 
-        // 8. Update session in cache
-        sessionCache.put(session);
+        redisCacheService.set(SESSION_CACHE, session.getId(), session);
 
-        // 9. Persist session (and attempts via cascade)
         singlePlayerSessionRepository.save(session);
 
-        // 10. Return attempt response
         return ResponseEntity.ok(responseDto);
     }
-
 }
