@@ -3,7 +3,7 @@ package com.pokeverse.play.model;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,9 +30,9 @@ public class Question {
     @Column(name = "option_value")
     private List<String> options = new ArrayList<>();
 
-    private LocalDateTime createdAt;
+    private Instant createdAt;
     @PrePersist
     public void prePersist() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
     }
 }

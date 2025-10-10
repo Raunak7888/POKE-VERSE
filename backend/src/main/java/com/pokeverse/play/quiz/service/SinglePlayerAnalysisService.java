@@ -1,106 +1,69 @@
 package com.pokeverse.play.quiz.service;
 
 import com.pokeverse.play.model.*;
-import com.pokeverse.play.quiz.dto.QuestionAttemptDto;
-import com.pokeverse.play.quiz.dto.QuizAnalysisDto;
+import com.pokeverse.play.quiz.utils.SinglePlayerSessionCache;
 import com.pokeverse.play.quiz.utils.ErrorUtil;
-import com.pokeverse.play.repository.SinglePlayerSessionRepository;
+import com.pokeverse.play.repository.SinglePlayerAnalysisRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class SinglePlayerAnalysisService {
-    private static final String SESSION_CACHE = "SESSION";
-    private static final String ANAYLSIS_CACHE = "ANALYSIS";
-    private final SinglePlayerSessionRepository singlePlayerSessionRepository;
-    @Autowired
-    private RedisCacheService redisSessionCacheService;
-    @Autowired
-    private RedisCacheService redisAnalysisCacheService;
+
+    private final SinglePlayerAnalysisRepository singlePlayerAnalysisRepository;
+    private final SinglePlayerSessionCache sessionCache;
     private final ErrorUtil errorUtil;
 
     public ResponseEntity<?> getAnalysisBySessionId(Long sessionId) {
-
-        QuizAnalysisDto cachedAnalysis = redisAnalysisCacheService.get(ANAYLSIS_CACHE, sessionId, QuizAnalysisDto.class)
-                .orElse(null);
-
-        if (cachedAnalysis != null) {
-            log.info("Returning analysis from cache for sessionId={}", sessionId);
-            return ResponseEntity.ok(cachedAnalysis);
-        }
-
-        SinglePlayerSession session = redisSessionCacheService.get(SESSION_CACHE, sessionId, SinglePlayerSession.class)
-                .orElse(null);
-
+        // ---------------------- 1. Get session from cache ----------------------
+        SinglePlayerSession session = sessionCache.get(sessionId);
         if (session == null) {
-            session = singlePlayerSessionRepository.findById(sessionId).orElse(null);
-
-            if (session == null) {
-                log.info("SessionId={} not found", sessionId);
-                return errorUtil.notFound("Session not found");
-            }
-
-            redisSessionCacheService.set(SESSION_CACHE, sessionId, session);
+            return ResponseEntity.status(404)
+                    .body(errorUtil.sendErrorMessage("Session not found in cache"));
         }
-
-        if (session.getAttempts() == null || session.getAttempts().isEmpty()) {
-            return errorUtil.notFound("No attempts found for this session");
-        }
-
-        QuizAnalysisDto analysisDto = computeAnalysis(session);
-
-        redisAnalysisCacheService.set(ANAYLSIS_CACHE, sessionId, analysisDto);
-
-        return ResponseEntity.ok(analysisDto);
-    }
-
-    // ---------------------- Helper Methods ----------------------
-    private QuizAnalysisDto computeAnalysis(SinglePlayerSession session) {
 
         List<SinglePlayerAttempts> attempts = session.getAttempts();
+        if (attempts.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(errorUtil.sendErrorMessage("No attempts found for this session"));
+        }
+
+        // ---------------------- 2. Compute basic stats ----------------------
         int totalQuestions = attempts.size();
         int correctAnswers = (int) attempts.stream().filter(SinglePlayerAttempts::isCorrect).count();
         int wrongAnswers = totalQuestions - correctAnswers;
+
         double accuracy = (double) correctAnswers / totalQuestions * 100;
 
-        List<Long> timesEachQuestion = new ArrayList<>();
-        LocalDateTime previous = session.getStartedAt();
+        // ---------------------- 3. Compute timing stats ----------------------
+        long totalDuration = attempts.stream()
+                .mapToLong(a -> Duration.between(a.getAnsweredAt(), session.getStartedAt()).abs().toMillis())
+                .sum();
 
-        for (SinglePlayerAttempts attempt : attempts) {
-            long timeTaken = Duration.between(previous, attempt.getAnsweredAt()).toMillis();
-            timesEachQuestion.add(timeTaken);
-            previous = attempt.getAnsweredAt();
-        }
-
-        long totalDuration = timesEachQuestion.stream().mapToLong(Long::longValue).sum();
         long averageTimePerQuestion = totalDuration / totalQuestions;
-        long fastestAnswerTime = timesEachQuestion.stream().mapToLong(Long::longValue).min().orElse(0);
-        long slowestAnswerTime = timesEachQuestion.stream().mapToLong(Long::longValue).max().orElse(0);
 
+        long fastestAnswerTime = attempts.stream()
+                .mapToLong(a -> Duration.between(a.getAnsweredAt(), session.getStartedAt()).abs().toMillis())
+                .min()
+                .orElse(0);
+
+        long slowestAnswerTime = attempts.stream()
+                .mapToLong(a -> Duration.between(a.getAnsweredAt(), session.getStartedAt()).abs().toMillis())
+                .max()
+                .orElse(0);
+
+        // ---------------------- 4. Determine Ratings ----------------------
         String answerSpeedRating = getAnswerSpeedRating(averageTimePerQuestion);
         String performanceRating = getPerformanceRating(accuracy);
 
-        List<QuestionAttemptDto> attemptDtos = attempts.stream()
-                .map(a -> QuestionAttemptDto.builder()
-                        .id(a.getId())
-                        .questionNo(a.getQuestion().getId().intValue())
-                        .question(a.getQuestion().getQuestion())
-                        .selectedAnswer(a.getSelectedAnswer())
-                        .correct(a.isCorrect())
-                        .build())
-                .toList();
-
-        return QuizAnalysisDto.builder()
+        // ---------------------- 5. Build Analysis ----------------------
+        SinglePlayerAnalysis analysis = SinglePlayerAnalysis.builder()
                 .sessionId(session.getId())
                 .userId(session.getUserId())
                 .quizType("SINGLE_PLAYER")
@@ -116,11 +79,17 @@ public class SinglePlayerAnalysisService {
                 .slowestAnswerTime(slowestAnswerTime)
                 .answerSpeedRating(answerSpeedRating)
                 .performanceRating(performanceRating)
-                .questionAttempts(attemptDtos)
+                .questionAttempts(attempts)
                 .createdAt(LocalDateTime.now())
                 .build();
+
+        // ---------------------- 6. Persist Analysis ----------------------
+        SinglePlayerAnalysis savedAnalysis = singlePlayerAnalysisRepository.save(analysis);
+
+        return ResponseEntity.ok(savedAnalysis);
     }
 
+    // ---------------------- Helper Methods ----------------------
     private String getAnswerSpeedRating(long avgTimeMs) {
         if (avgTimeMs < 5000) return Rating.MEWTWO.name();
         else if (avgTimeMs < 10000) return Rating.SNORLAX.name();
